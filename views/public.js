@@ -55,7 +55,109 @@ ${XP_CSS}
 .profile-mood { font-size:10px; color:#666; margin-top:3px; }
 .online-dot { display:inline-block; width:8px; height:8px; background:#00bb44; border-radius:50%; border:1px solid #008830; animation: pulse 2s infinite; margin-right:3px; }
 @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.9)} }
+
+/* ─── MOBILE RESPONSIVE ─── */
+@media (max-width: 768px) {
+  /* Desktop icons → horizontal top bar */
+  .desktop-icons {
+    position: relative !important;
+    top: 0; left: 0;
+    flex-direction: row !important;
+    gap: 2px;
+    justify-content: center;
+    padding: 6px 4px;
+    background: rgba(0,0,0,0.15);
+    border-radius: 4px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .xp-desktop-icon { width: 54px; padding: 3px; }
+  .xp-desktop-icon-img { font-size: 24px; }
+  .xp-desktop-icon-label { font-size: 8px; }
+
+  /* Desktop area — remove left padding */
+  .desktop { padding: 6px !important; }
+
+  /* Main window — remove Winamp margin */
+  .xp-window { margin-right: 0 !important; }
+
+  /* 3-col layout → single column */
+  .main-layout {
+    grid-template-columns: 1fr !important;
+    gap: 0;
+  }
+
+  /* Hide task pane on mobile (use desktop icons instead) */
+  .xp-taskpane { display: none; }
+
+  /* Right detail column → full width at bottom */
+  .right-col {
+    border-left: none;
+    border-top: 1px solid #a8a090;
+  }
+
+  /* Feed scroll — more height on mobile */
+  .feed-scroll { max-height: none; overflow-y: visible; }
+
+  /* Winamp → below desktop icons, full width */
+  #winamp-float {
+    position: relative !important;
+    top: 0 !important; right: 0 !important;
+    width: 100% !important;
+    margin-bottom: 6px;
+    display: none;
+  }
+  #winamp-float.mobile-visible { display: block; }
+
+  /* Photo grid — 2 columns */
+  .xp-photo-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 6px; }
+
+  /* Hide menu bar items to save space */
+  .xp-menubar { display: none; }
+
+  /* Toolbar wraps */
+  .xp-toolbar { flex-wrap: wrap; gap: 2px; padding: 2px 3px; }
+  .xp-toolbar-btn { padding: 3px 6px; font-size: 10px; }
+  .xp-toolbar-sep { display: none; }
+
+  /* Titlebar text smaller */
+  .xp-titlebar-text { font-size: 10px; }
+
+  /* Post cards */
+  .xp-post-header { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .xp-post-meta { margin-left: 0; }
+
+  /* Taskbar */
+  .xp-taskbar { height: 36px; }
+  .xp-start-btn { font-size: 11px; padding: 2px 10px 2px 8px; }
+  .xp-taskbar-apps { display: none; }
+  .xp-systray { font-size: 9px; padding: 0 6px; }
+
+  /* Balloon notifications */
+  .xp-balloon { bottom: 44px; right: 6px; left: 6px; max-width: none; }
+
+  /* Lightbox */
+  .xp-lightbox-body img { max-width: 95vw; max-height: 60vh; }
+
+  /* Music table */
+  .music-table { font-size: 10px; }
+  .music-table th, .music-table td { padding: 3px 4px; }
+
+  /* Address bar */
+  .xp-address-row { font-size: 10px; }
+  .xp-address-input { font-size: 10px; }
+}
+
+/* Small phones */
+@media (max-width: 420px) {
+  .xp-desktop-icon { width: 48px; }
+  .xp-desktop-icon-img { font-size: 20px; }
+  .xp-photo-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .xp-toolbar-btn { font-size: 9px; padding: 2px 4px; }
+  .profile-avatar { font-size: 36px; }
+}
 </style>
+
 </head>
 <body>
 
@@ -754,13 +856,17 @@ function setStatus(m){document.getElementById('status-left').textContent=m;}
 // ═══════════════════════════════════════
 function togglePlayer(){
   const w=document.getElementById('winamp-float');
-  const hidden=w.style.display==='none';
-  w.style.display=hidden?'':'none';
-  document.getElementById('taskbar-winamp').classList.toggle('active',hidden);
-  document.getElementById('xp-window','').style;
-  // Adjust main window right margin
-  const main=document.querySelector('.xp-window[style*="margin-right"]');
-  if(main) main.style.marginRight=hidden?'226px':'8px';
+  const isMobile=window.innerWidth<=768;
+  if(isMobile){
+    w.classList.toggle('mobile-visible');
+  } else {
+    const hidden=w.style.display==='none';
+    w.style.display=hidden?'':'none';
+    const main=document.querySelector('.xp-window[style*="margin-right"]');
+    if(main) main.style.marginRight=hidden?'226px':'8px';
+  }
+  const tb=document.getElementById('taskbar-winamp');
+  if(tb) tb.classList.toggle('active');
 }
 
 // ═══════════════════════════════════════
