@@ -69,6 +69,7 @@ body { background: #3a6ea5; }
     <button class="xp-toolbar-btn" onclick="showTab('posts',this)">📝 Posts</button>
     <button class="xp-toolbar-btn" onclick="showTab('images',this)">🖼️ Images</button>
     <button class="xp-toolbar-btn" onclick="showTab('music',this)">🎵 Music</button>
+    <button class="xp-toolbar-btn" onclick="showTab('notifs',this)">🔔 Notifications</button>
     <div class="xp-toolbar-sep"></div>
     <a class="xp-toolbar-btn" href="/" target="_blank" style="text-decoration:none">🌐 View Live Site</a>
   </div>
@@ -79,6 +80,7 @@ body { background: #3a6ea5; }
     <div class="xp-tab" onclick="showTab('posts',this)">📝 Posts</div>
     <div class="xp-tab" onclick="showTab('images',this)">🖼️ Images</div>
     <div class="xp-tab" onclick="showTab('music',this)">🎵 Music</div>
+    <div class="xp-tab" onclick="showTab('notifs',this)">🔔 Notifications</div>
   </div>
 
   <!-- OVERVIEW -->
@@ -153,6 +155,25 @@ body { background: #3a6ea5; }
     </div>
   </div>
 
+  <!-- NOTIFICATIONS -->
+  <div class="tab-pane" id="tab-notifs" style="padding:10px;background:#fff;flex:1">
+    <div class="two-col">
+      <div>
+        <div class="xp-groupbox"><span class="xp-groupbox-title">📣 Send Custom Notification</span>
+          <div id="notif-msg"></div>
+          <div class="form-row"><label>Title</label><input class="xp-input" id="n-title" placeholder="Notification title…" maxlength="200"></div>
+          <div class="form-row"><label>Message</label><textarea class="xp-input xp-textarea" id="n-message" style="min-height:80px" placeholder="Notification message (optional)…" maxlength="500"></textarea></div>
+          <button class="xp-btn xp-btn-default" onclick="sendCustomNotif()">🔔 Send Notification</button>
+        </div>
+      </div>
+      <div>
+        <div class="xp-groupbox" style="max-height:440px;overflow-y:auto"><span class="xp-groupbox-title">Recent Notifications (<span id="n-count">0</span>)</span>
+          <div id="notifs-list" style="padding-top:5px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Status bar -->
   <div class="xp-statusbar">
     <div class="xp-statusbar-pane" id="admin-status" style="flex:1">Ready</div>
@@ -214,7 +235,7 @@ body { background: #3a6ea5; }
 let allPosts=[], allImages=[], allTracks=[];
 
 async function init() {
-  await Promise.all([loadPosts(),loadImages(),loadTracks()]);
+  await Promise.all([loadPosts(),loadImages(),loadTracks(),loadNotifs()]);
   renderOverview();
 }
 
@@ -395,6 +416,38 @@ async function delTrack(id){
   if(!confirm('Delete this track permanently?'))return;
   await fetch('/api/tracks/'+id,{method:'DELETE'});
   await loadTracks();renderOverview();
+}
+
+// ── NOTIFICATIONS ──
+async function loadNotifs(){
+  try {
+    const notifs=await(await fetch('/api/notifications?since='+new Date(Date.now()-7*86400000).toISOString())).json();
+    document.getElementById('n-count').textContent=notifs.length;
+    document.getElementById('notifs-list').innerHTML=notifs.length
+      ?notifs.map(n=>{
+        const iconMap={new_post:'📝',updated_post:'📝',new_image:'🖼️',new_track:'🎵',updated_track:'🎵',custom:'📣'};
+        const icon=iconMap[n.type]||'🔔';
+        const date=new Date(n.createdAt).toLocaleString();
+        return \`<div class="admin-item">
+          <div style="font-size:18px">\${icon}</div>
+          <div class="admin-item-info">
+            <div class="admin-item-title">\${esc(n.title)}</div>
+            <div class="admin-item-meta">\${esc(n.message||'')} · \${date} · \${n.type}</div>
+          </div>
+        </div>\`;
+      }).join('')
+      :'<div class="empty-state">No notifications in the last 7 days</div>';
+  } catch(e) {
+    document.getElementById('notifs-list').innerHTML='<div class="empty-state">Could not load notifications</div>';
+  }
+}
+async function sendCustomNotif(){
+  const title=document.getElementById('n-title').value.trim();
+  const message=document.getElementById('n-message').value.trim();
+  if(!title){showMsg('notif-msg','Title is required.','err');return;}
+  const res=await fetch('/api/notifications/custom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,message})});
+  if(res.ok){showMsg('notif-msg','Notification sent! 🔔','ok');document.getElementById('n-title').value='';document.getElementById('n-message').value='';await loadNotifs();}
+  else{const e=await res.json();showMsg('notif-msg',e.error,'err');}
 }
 
 init();

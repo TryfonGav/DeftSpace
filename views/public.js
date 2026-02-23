@@ -56,6 +56,51 @@ ${XP_CSS}
 .online-dot { display:inline-block; width:8px; height:8px; background:#00bb44; border-radius:50%; border:1px solid #008830; animation: pulse 2s infinite; margin-right:3px; }
 @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.9)} }
 
+/* ─── NOTIFICATION BELL ─── */
+.notif-bell { position:relative; cursor:pointer; font-size:14px; user-select:none; }
+.notif-badge {
+  position:absolute; top:-6px; right:-8px;
+  background:#cc0000; color:#fff; font-size:8px; font-weight:bold;
+  min-width:14px; height:14px; line-height:14px;
+  text-align:center; border-radius:7px; padding:0 3px;
+  display:none; border:1px solid #900;
+}
+.notif-badge.visible { display:block; animation: badge-pop 0.3s ease; }
+@keyframes badge-pop { 0%{transform:scale(0)} 50%{transform:scale(1.3)} 100%{transform:scale(1)} }
+
+/* Notification panel */
+.notif-panel {
+  position:fixed; bottom:36px; right:6px;
+  width:320px; max-height:400px;
+  z-index:9999; display:none;
+}
+.notif-panel.visible { display:flex; flex-direction:column; }
+.notif-panel-body {
+  flex:1; overflow-y:auto; background:#fff;
+  border:1px solid #a8a090; border-top:none;
+  max-height:340px;
+}
+.notif-item {
+  display:flex; gap:6px; padding:6px 8px;
+  border-bottom:1px solid #f0ece0;
+  font-size:11px; cursor:default;
+  transition:background 0.1s;
+}
+.notif-item:hover { background:#f5f8ff; }
+.notif-item.unread { background:#eef5ff; }
+.notif-item-icon { font-size:16px; flex-shrink:0; }
+.notif-item-content { flex:1; min-width:0; }
+.notif-item-title { font-weight:bold; color:#00006f; }
+.notif-item-msg { color:#555; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.notif-item-time { font-size:9px; color:#999; margin-top:2px; }
+.notif-empty { padding:20px; text-align:center; color:#999; font-size:11px; }
+.notif-panel-footer {
+  background:linear-gradient(180deg,#f5f3ec 0%,#e8e4d8 100%);
+  border:1px solid #a8a090; border-top:1px solid #d4d0c8;
+  padding:4px 8px; text-align:center;
+  font-size:10px;
+}
+
 /* ─── MOBILE RESPONSIVE ─── */
 @media (max-width: 768px) {
   /* Desktop icons → horizontal top bar */
@@ -135,6 +180,9 @@ ${XP_CSS}
 
   /* Balloon notifications */
   .xp-balloon { bottom: 44px; right: 6px; left: 6px; max-width: none; }
+
+  /* Notification panel mobile */
+  .notif-panel { left:6px; right:6px; width:auto; bottom:42px; }
 
   /* Lightbox */
   .xp-lightbox-body img { max-width: 95vw; max-height: 60vh; }
@@ -427,9 +475,30 @@ ${XP_CSS}
     <div class="xp-taskbar-app" id="taskbar-winamp" onclick="togglePlayer()">🎵 Winamp</div>
   </div>
   <div class="xp-systray">
+    <span title="Notifications" class="notif-bell" id="notif-bell" onclick="toggleNotifPanel()">🔔<span class="notif-badge" id="notif-badge">0</span></span>
     <span title="Volume">🔊</span>
     <span title="Network">🌐</span>
     <span id="systray-clock">12:00 PM</span>
+  </div>
+</div>
+
+<!-- NOTIFICATION PANEL -->
+<div class="notif-panel" id="notif-panel">
+  <div class="xp-titlebar">
+    <div class="xp-titlebar-left">
+      <span class="xp-titlebar-icon">🔔</span>
+      <span class="xp-titlebar-text">Notifications</span>
+    </div>
+    <div class="xp-titlebar-btns">
+      <div class="xp-tbtn xp-tbtn-close" onclick="toggleNotifPanel()">✕</div>
+    </div>
+  </div>
+  <div class="notif-panel-body" id="notif-list">
+    <div class="notif-empty">No notifications yet.</div>
+  </div>
+  <div class="notif-panel-footer">
+    <button class="xp-btn xp-btn-sm" onclick="clearNotifications()">Clear All</button>
+    <span id="notif-perm-status" style="margin-left:8px;color:#888"></span>
   </div>
 </div>
 
@@ -475,6 +544,7 @@ let posts=[], images=[], tracks=[];
 let currentIdx=-1, isPlaying=false;
 const audio = document.getElementById('audio-el');
 let eqTimer=null, balloonTimer=null;
+let notifTimer=null, notifData=[], notifPanelOpen=false;
 
 const rp = () => JSON.parse(localStorage.getItem('ds_rp')||'{}');
 const ri = () => JSON.parse(localStorage.getItem('ds_ri')||'{}');
@@ -493,6 +563,7 @@ async function init() {
   await Promise.all([loadPosts(), loadImages(), loadTracks()]);
   refreshPageInfo();
   refreshLatestUpdate();
+  initNotifications();
   setTimeout(() => showBalloon('👋 Welcome!', 'Thanks for visiting DeftSpace!'), 1800);
 }
 
@@ -873,6 +944,188 @@ function togglePlayer(){
 //  UTIL
 // ═══════════════════════════════════════
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ═══════════════════════════════════════
+//  NOTIFICATIONS
+// ═══════════════════════════════════════
+function initNotifications() {
+  updatePermStatus();
+  // Register service worker and subscribe to push
+  if ('serviceWorker' in navigator && 'PushManager' in window) {
+    navigator.serviceWorker.register('/sw.js').then(async reg => {
+      console.log('SW registered');
+      // Ask permission if not yet decided
+      if (Notification.permission === 'default') {
+        const perm = await Notification.requestPermission();
+        updatePermStatus();
+        if (perm !== 'granted') return;
+      }
+      if (Notification.permission === 'granted') {
+        await subscribeToPush(reg);
+      }
+    }).catch(e => console.error('SW registration failed:', e));
+  } else if ('Notification' in window && Notification.permission === 'default') {
+    setTimeout(() => {
+      Notification.requestPermission().then(updatePermStatus);
+    }, 3000);
+  }
+  // Start polling for in-app notification panel
+  pollNotifications();
+  notifTimer = setInterval(pollNotifications, 30000);
+}
+
+async function subscribeToPush(reg) {
+  try {
+    const res = await fetch('/api/push/vapid-public-key');
+    const { publicKey } = await res.json();
+    if (!publicKey) return;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey)
+    });
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sub.toJSON())
+    });
+    console.log('Push subscription sent to server');
+    updatePermStatus();
+  } catch (e) {
+    console.error('Push subscribe error:', e);
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+function updatePermStatus() {
+  const el = document.getElementById('notif-perm-status');
+  if (!('Notification' in window)) {
+    el.textContent = 'Not supported';
+  } else if (Notification.permission === 'granted') {
+    el.textContent = '\u2705 Push Active';
+  } else if (Notification.permission === 'denied') {
+    el.textContent = '\u274c Blocked';
+  } else {
+    el.textContent = 'Click \uD83D\uDD14 to enable';
+  }
+}
+
+async function pollNotifications() {
+  try {
+    const lastCheck = localStorage.getItem('ds_notif_last') || new Date(Date.now() - 86400000).toISOString();
+    const res = await fetch('/api/notifications?since=' + encodeURIComponent(lastCheck));
+    const newNotifs = await res.json();
+    if (newNotifs.length > 0) {
+      // Store new timestamp
+      localStorage.setItem('ds_notif_last', newNotifs[0].createdAt);
+      // Track which ones are new (unread)
+      const seenIds = JSON.parse(localStorage.getItem('ds_notif_seen') || '[]');
+      let unreadCount = 0;
+      newNotifs.forEach(n => {
+        if (!seenIds.includes(n._id)) {
+          unreadCount++;
+          // Fire native browser notification
+          if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification(n.title, {
+                body: n.message || '',
+                icon: '\uD83D\uDD14',
+                tag: n._id
+              });
+            } catch(e) {}
+          }
+        }
+      });
+      // Merge with existing data (avoid duplicates)
+      const existingIds = new Set(notifData.map(x => x._id));
+      newNotifs.forEach(n => { if (!existingIds.has(n._id)) notifData.unshift(n); });
+      notifData = notifData.slice(0, 50);
+      // Update badge
+      updateNotifBadge(unreadCount);
+      // Show balloon for latest
+      if (unreadCount > 0) {
+        const latest = newNotifs[0];
+        showBalloon(latest.title, latest.message || 'Check it out!', '\uD83D\uDD14');
+      }
+    }
+    renderNotifPanel();
+  } catch(e) {}
+}
+
+function updateNotifBadge(count) {
+  const badge = document.getElementById('notif-badge');
+  const seenIds = JSON.parse(localStorage.getItem('ds_notif_seen') || '[]');
+  const total = notifData.filter(n => !seenIds.includes(n._id)).length;
+  badge.textContent = total;
+  badge.classList.toggle('visible', total > 0);
+}
+
+function renderNotifPanel() {
+  const list = document.getElementById('notif-list');
+  if (!notifData.length) {
+    list.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
+    return;
+  }
+  const seenIds = JSON.parse(localStorage.getItem('ds_notif_seen') || '[]');
+  const iconMap = {
+    new_post: '\uD83D\uDCDD', updated_post: '\uD83D\uDCDD',
+    new_image: '\uD83D\uDDBC\uFE0F', new_track: '\uD83C\uDFB5',
+    updated_track: '\uD83C\uDFB5', custom: '\uD83D\uDCE3'
+  };
+  list.innerHTML = notifData.map(n => {
+    const isUnread = !seenIds.includes(n._id);
+    const icon = iconMap[n.type] || '\uD83D\uDD14';
+    const ago = timeAgo(new Date(n.createdAt));
+    return \`<div class="notif-item \${isUnread ? 'unread' : ''}">
+      <span class="notif-item-icon">\${icon}</span>
+      <div class="notif-item-content">
+        <div class="notif-item-title">\${esc(n.title)}</div>
+        <div class="notif-item-msg">\${esc(n.message)}</div>
+        <div class="notif-item-time">\${ago}</div>
+      </div>
+    </div>\`;
+  }).join('');
+}
+
+function toggleNotifPanel() {
+  const panel = document.getElementById('notif-panel');
+  notifPanelOpen = !notifPanelOpen;
+  panel.classList.toggle('visible', notifPanelOpen);
+  if (notifPanelOpen) {
+    // Mark all as seen
+    const seenIds = notifData.map(n => n._id);
+    localStorage.setItem('ds_notif_seen', JSON.stringify(seenIds));
+    updateNotifBadge(0);
+    renderNotifPanel();
+    // Request permission if not yet asked
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(updatePermStatus);
+    }
+  }
+}
+
+function clearNotifications() {
+  notifData = [];
+  localStorage.setItem('ds_notif_seen', '[]');
+  updateNotifBadge(0);
+  renderNotifPanel();
+  toggleNotifPanel();
+}
+
+function timeAgo(date) {
+  const s = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+}
 
 init();
 </script>
