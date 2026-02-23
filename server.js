@@ -54,14 +54,18 @@ app.get('/', (req, res) => {
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/deftspace')
   .then(async () => {
     console.log('✅ MongoDB connected');
-    const userCount = await User.countDocuments();
-    if (userCount === 0) {
+    const adminUser = await User.findOne({ username: process.env.ADMIN_USERNAME || 'admin' });
+    if (!adminUser) {
       const admin = new User({
         username: process.env.ADMIN_USERNAME || 'admin',
         password: process.env.ADMIN_PASSWORD || 'deftspace2025'
       });
       await admin.save();
       console.log(`✅ Admin user created: ${admin.username}`);
+    } else if (process.env.ADMIN_PASSWORD) {
+      adminUser.password = process.env.ADMIN_PASSWORD;
+      await adminUser.save();
+      console.log('✅ Admin password synced from environment');
     }
     app.listen(PORT, () => console.log(`🚀 DeftSpace running at http://localhost:${PORT}`));
   })
