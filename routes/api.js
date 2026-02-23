@@ -338,6 +338,15 @@ router.post('/notifications/custom', requireAuth, async (req, res) => {
   }
 });
 
+router.delete('/notifications', requireAuth, async (req, res) => {
+  try {
+    await Notification.deleteMany({});
+    res.json({ success: true, message: 'All notifications cleared.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ===================== PUSH SUBSCRIPTION =====================
 
 router.get('/push/vapid-public-key', (req, res) => {

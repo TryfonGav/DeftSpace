@@ -1019,42 +1019,39 @@ function updatePermStatus() {
 
 async function pollNotifications() {
   try {
-    const lastCheck = localStorage.getItem('ds_notif_last') || new Date(Date.now() - 86400000).toISOString();
-    const res = await fetch('/api/notifications?since=' + encodeURIComponent(lastCheck));
-    const newNotifs = await res.json();
+    const res = await fetch('/api/notifications');
+    const allNotifs = await res.json();
+    
+    // Find notifications created since our last check to show native popups/balloons
+    const lastCheckStr = localStorage.getItem('ds_notif_last');
+    const lastCheck = lastCheckStr ? new Date(lastCheckStr).getTime() : Date.now() - 86400000;
+    const newNotifs = allNotifs.filter(n => new Date(n.createdAt).getTime() > lastCheck);
+    
     if (newNotifs.length > 0) {
-      // Store new timestamp
       localStorage.setItem('ds_notif_last', newNotifs[0].createdAt);
-      // Track which ones are new (unread)
+      
       const seenIds = JSON.parse(localStorage.getItem('ds_notif_seen') || '[]');
-      let unreadCount = 0;
+      let hasUnreadNew = false;
+      
       newNotifs.forEach(n => {
         if (!seenIds.includes(n._id)) {
-          unreadCount++;
-          // Fire native browser notification
+          hasUnreadNew = true;
           if ('Notification' in window && Notification.permission === 'granted') {
-            try {
-              new Notification(n.title, {
-                body: n.message || '',
-                icon: '\uD83D\uDD14',
-                tag: n._id
-              });
-            } catch(e) {}
+            try { new Notification(n.title, { body: n.message || '', icon: '\uD83D\uDD14', tag: n._id }); } catch(e) {}
           }
         }
       });
-      // Merge with existing data (avoid duplicates)
-      const existingIds = new Set(notifData.map(x => x._id));
-      newNotifs.forEach(n => { if (!existingIds.has(n._id)) notifData.unshift(n); });
-      notifData = notifData.slice(0, 50);
-      // Update badge
-      updateNotifBadge(unreadCount);
-      // Show balloon for latest
-      if (unreadCount > 0) {
+      
+      if (hasUnreadNew) {
         const latest = newNotifs[0];
         showBalloon(latest.title, latest.message || 'Check it out!', '\uD83D\uDD14');
       }
     }
+    
+    // Sync local state completely with server so cleared notifications disappear
+    notifData = allNotifs;
+    
+    updateNotifBadge();
     renderNotifPanel();
   } catch(e) {}
 }

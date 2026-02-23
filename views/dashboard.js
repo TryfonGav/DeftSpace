@@ -167,8 +167,10 @@ body { background: #3a6ea5; }
         </div>
       </div>
       <div>
-        <div class="xp-groupbox" style="max-height:440px;overflow-y:auto"><span class="xp-groupbox-title">Recent Notifications (<span id="n-count">0</span>)</span>
-          <div id="notifs-list" style="padding-top:5px"></div>
+        <div class="xp-groupbox" style="max-height:440px;overflow-y:auto;position:relative;">
+          <span class="xp-groupbox-title">Recent Notifications (<span id="n-count">0</span>)</span>
+          <button class="xp-btn" style="position:absolute;top:5px;right:10px;padding:2px 8px" onclick="clearAllNotifs()">Clear All</button>
+          <div id="notifs-list" style="padding-top:24px"></div>
         </div>
       </div>
     </div>
@@ -448,6 +450,12 @@ async function sendCustomNotif(){
   const res=await fetch('/api/notifications/custom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,message})});
   if(res.ok){showMsg('notif-msg','Notification sent! 🔔','ok');document.getElementById('n-title').value='';document.getElementById('n-message').value='';await loadNotifs();}
   else{const e=await res.json();showMsg('notif-msg',e.error,'err');}
+}
+async function clearAllNotifs(){
+  if(!confirm('Are you sure you want to clear all notifications from the database?')) return;
+  const res=await fetch('/api/notifications',{method:'DELETE'});
+  if(res.ok) await loadNotifs();
+  else alert('Failed to clear notifications');
 }
 
 init();
