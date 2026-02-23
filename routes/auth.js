@@ -171,6 +171,28 @@ function getLoginPage(error) {
     <span>🔒 Secure Login</span>
   </div>
 </div>
+<script>
+if ('serviceWorker' in navigator && 'PushManager' in window) {
+  navigator.serviceWorker.register('/sw.js').then(async reg => {
+    if (Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+    if (Notification.permission === 'granted') {
+      try {
+        const { publicKey } = await (await fetch('/api/push/vapid-public-key')).json();
+        if (!publicKey) return;
+        const padding = '='.repeat((4 - publicKey.length % 4) % 4);
+        const b64 = (publicKey + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw = atob(b64);
+        const arr = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+        const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: arr });
+        await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub.toJSON()) });
+      } catch(e) {}
+    }
+  }).catch(() => {});
+}
+</script>
 </body>
 </html>`;
 }
