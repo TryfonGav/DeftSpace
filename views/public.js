@@ -1017,7 +1017,14 @@ function urlBase64ToUint8Array(base64String) {
 function updatePermStatus() {
   const el = document.getElementById('notif-perm-status');
   if (!('Notification' in window)) {
-    el.textContent = 'Not supported';
+    // Check if it's an iOS device
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS) {
+      el.textContent = 'Add to Home Screen first';
+      el.title = 'iOS requires you to Add to Home Screen to enable push notifications.';
+    } else {
+      el.textContent = 'Not supported';
+    }
   } else if (Notification.permission === 'granted') {
     el.textContent = '\u2705 Push Active';
   } else if (Notification.permission === 'denied') {
