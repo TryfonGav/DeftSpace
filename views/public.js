@@ -572,10 +572,20 @@ function tickClock() {
   document.getElementById('systray-clock').textContent = h+':'+m+' '+(n.getHours()>=12?'PM':'AM');
 }
 
-function bumpCounter() {
-  const c = (parseInt(localStorage.getItem('ds_vc')||'0')+1);
-  localStorage.setItem('ds_vc', c);
-  document.getElementById('xp-counter').textContent = String(c).padStart(6,'0');
+async function bumpCounter() {
+  try {
+    let res;
+    if (!sessionStorage.getItem('ds_visited')) {
+      res = await fetch('/api/visitors/bump', { method: 'POST' });
+      sessionStorage.setItem('ds_visited', 'true');
+    } else {
+      res = await fetch('/api/visitors/count');
+    }
+    const data = await res.json();
+    document.getElementById('xp-counter').textContent = String(data.count).padStart(6,'0');
+  } catch(e) {
+    console.error('Visitor count error:', e);
+  }
 }
 
 // ═══════════════════════════════════════

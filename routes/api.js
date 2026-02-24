@@ -7,6 +7,7 @@ const Image = require('../models/Image');
 const Track = require('../models/Track');
 const Notification = require('../models/Notification');
 const PushSubscription = require('../models/PushSubscription');
+const Visitor = require('../models/Visitor');
 const { requireAuth } = require('../middleware/auth');
 const { uploadImage, uploadAudio, cloudinary } = require('../middleware/upload');
 
@@ -383,6 +384,30 @@ router.get('/push/count', requireAuth, async (req, res) => {
   try {
     const count = await PushSubscription.countDocuments();
     res.json({ count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===================== VISITORS =====================
+
+router.get('/visitors/count', async (req, res) => {
+  try {
+    const visitor = await Visitor.findOne({ siteId: 'deftspace' });
+    res.json({ count: visitor ? visitor.count : 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/visitors/bump', async (req, res) => {
+  try {
+    const visitor = await Visitor.findOneAndUpdate(
+      { siteId: 'deftspace' },
+      { $inc: { count: 1 } },
+      { new: true, upsert: true }
+    );
+    res.json({ count: visitor.count });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
