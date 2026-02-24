@@ -1023,8 +1023,10 @@ async function pollNotifications() {
     const allNotifs = await res.json();
     
     // Find notifications created since our last check to show native popups/balloons
-    const lastCheckStr = localStorage.getItem('ds_notif_last');
-    const lastCheck = lastCheckStr ? new Date(lastCheckStr).getTime() : Date.now() - 86400000;
+    let lastCheckStr = localStorage.getItem('ds_notif_last');
+    // If first load, set last check to now so we don't spam 24h worth of old popups
+    if (!lastCheckStr) { lastCheckStr = new Date().toISOString(); localStorage.setItem('ds_notif_last', lastCheckStr); }
+    const lastCheck = new Date(lastCheckStr).getTime();
     const newNotifs = allNotifs.filter(n => new Date(n.createdAt).getTime() > lastCheck);
     
     if (newNotifs.length > 0) {
