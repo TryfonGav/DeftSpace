@@ -957,7 +957,7 @@ function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/<
 
 function linkifyAndEsc(s) {
   if (!s) return '';
-  const parts = String(s).split(/(https?:\/\/[^\s]+)/g);
+  const parts = String(s).split(/(https?:\\/\\/[^\\s]+)/g);
   return parts.map((part, i) => {
     if (i % 2 === 1) {
       let url = part, trailing = '';
