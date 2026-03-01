@@ -641,7 +641,7 @@ function renderPosts(list) {
       </div>
       <div class="xp-post-body">
         <div style="margin-bottom:8px"><span class="xp-mood-tag">😊 Mood: \${esc(p.mood||'chillin')}</span></div>
-        <div>\${esc(p.content).replace(/\\n/g,'<br>')}</div>
+        <div>\${linkifyAndEsc(p.content).replace(/\\n/g,'<br>')}</div>
       </div>
       <div class="xp-post-footer">
         <span style="font-size:10px;color:#666;flex:1">Was this helpful?</span>
@@ -954,6 +954,20 @@ function togglePlayer(){
 //  UTIL
 // ═══════════════════════════════════════
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function linkifyAndEsc(s) {
+  if (!s) return '';
+  const parts = String(s).split(/(https?:\/\/[^\s]+)/g);
+  return parts.map((part, i) => {
+    if (i % 2 === 1) {
+      let url = part, trailing = '';
+      const m = url.match(/([.,!?;:"']+)$/);
+      if (m) { trailing = m[1]; url = url.slice(0, -trailing.length); }
+      return '<a href="' + esc(url) + '" target="_blank" style="color:#0000ff;text-decoration:underline;">' + esc(url) + '</a>' + esc(trailing);
+    }
+    return esc(part);
+  }).join('');
+}
 
 // ═══════════════════════════════════════
 //  NOTIFICATIONS
