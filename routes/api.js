@@ -55,7 +55,7 @@ const reactionLimiter = rateLimit({
 
 router.get('/posts', async (req, res) => {
   try {
-    const posts = await Post.find().sort({ createdAt: -1 });
+    const posts = await Post.find().sort({ createdAt: -1 }).lean().select('-__v');
     res.json(posts);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -139,7 +139,7 @@ router.post('/posts/:id/remove/:type', reactionLimiter, async (req, res) => {
 
 router.get('/images', async (req, res) => {
   try {
-    const images = await Image.find().sort({ createdAt: -1 });
+    const images = await Image.find().sort({ createdAt: -1 }).lean().select('-__v');
     res.json(images);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -220,7 +220,7 @@ router.post('/images/:id/remove/:type', reactionLimiter, async (req, res) => {
 
 router.get('/tracks', async (req, res) => {
   try {
-    const tracks = await Track.find().sort({ createdAt: -1 });
+    const tracks = await Track.find().sort({ createdAt: -1 }).lean().select('-__v');
     res.json(tracks);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -314,7 +314,7 @@ router.post('/tracks/:id/remove/:type', reactionLimiter, async (req, res) => {
 router.get('/notifications', async (req, res) => {
   try {
     const since = req.query.since ? new Date(req.query.since) : new Date(Date.now() - 86400000);
-    const notifications = await Notification.find({ createdAt: { $gt: since } }).sort({ createdAt: -1 }).limit(50);
+    const notifications = await Notification.find({ createdAt: { $gt: since } }).sort({ createdAt: -1 }).limit(50).lean().select('-__v');
     res.json(notifications);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -701,7 +701,7 @@ function renderGallery() {
   grid.innerHTML=images.map(img=>{
     const r=reacted[img._id];
     return \`<div class="xp-photo-item">
-      <img src="\${img.path}" alt="\${esc(img.caption)}" onclick="openLightbox('\${img.path}','\${esc(img.caption)}')" title="Click to enlarge">
+      <img src="\${img.path}" alt="\${esc(img.caption)}" loading="lazy" decoding="async" onclick="openLightbox('\${img.path}','\${esc(img.caption)}')" title="Click to enlarge">
       <div class="xp-photo-caption">\${esc(img.caption)||'(no caption)'}</div>
       <div class="xp-photo-reactions">
         <button class="xp-photo-react" onclick="\${r==='like'?'unreactImg':'reactImg'}('\${img._id}','like')" \${r&&r!=='like'?'disabled':''}
